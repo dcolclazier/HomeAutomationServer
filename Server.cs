@@ -18,16 +18,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace HomeAutomationServer
 {
-    public enum ClientCommands : byte
-    {
-        KeepAliveResponse = 0x00,
-        GetCurrentTemp = 0x02,
-        SwitchToCelcius = 0x03,
-        SwitchToFahrenheit = 0x04,
-        StartMotionNotifications = 0x05,
-        StopMotionNotifications = 0x06
-
-    }
+   
     public class Server : IDisposable
     {
         //private readonly TcpListener _tcpListener;
@@ -102,8 +93,7 @@ namespace HomeAutomationServer
                     if (client.Connected & !Closing)
                     {
                         _form.Log("Client connected: " + client.Client.RemoteEndPoint + "\n");
-                        var helloThread = new Thread(SayHello);
-                        helloThread.Start(client);
+                        SayHello(client);
 
                         var clientThread = new Thread(PersistentConnection);
                         clientThread.Start(client);
@@ -116,21 +106,31 @@ namespace HomeAutomationServer
         private void SayHello(object client)
         {
             
-            var tcpClient = (TcpClient) client;
-            
-            SendCommand(tcpClient, 0x00);
-            Thread.Sleep(200);
+           
+            lock (client)
+            {
+                var tcpClient = (TcpClient)client;
 
-            var bytesRead = 0;
-            var receivedData = new byte[] {};
-                     
-            try { receivedData = ReceiveData(tcpClient.Client, out bytesRead, size: tcpClient.Available); }
-            catch { _form.Log("Something went wrong... bummer."); }
+                SendCommand(tcpClient, 0x00);
+                Thread.Sleep(500);
+                var bytesRead = 0;
+                var receivedData = new byte[] { };
+                try
+                {
+                    receivedData = ReceiveData(tcpClient.Client, out bytesRead, size: tcpClient.Available);
+                }
+                catch
+                {
+                    _form.Log("Something went wrong... bummer.");
+                }
+                var encoder = new UTF8Encoding();
+                var commandTable = JsonConvert.DeserializeObject<Dictionary<string, byte>>(encoder.GetString(receivedData, 0, bytesRead));
+
+                ConnectionTable.Add(tcpClient, commandTable);
+                _form.Log("Connection Established.");
+            }
+
             
-            var encoder = new UTF8Encoding();
-            var commandTable = JsonConvert.DeserializeObject<Dictionary<string,byte>>(encoder.GetString(receivedData, 0, bytesRead));
-            
-            ConnectionTable.Add(tcpClient,commandTable);
         }
 
         private void PersistentConnection(object client)
@@ -141,7 +141,7 @@ namespace HomeAutomationServer
                 if (Closing) break;
                 if (tcpClient.Available == 0) continue;
                 
-                Thread.Sleep(200);
+                Thread.Sleep(500);
 
                 int bytesRead;
                 byte[] receivedData;

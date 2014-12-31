@@ -95,18 +95,18 @@ namespace HomeAutomationServer
             
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            comboBox1.DataSource = Enum.GetValues(typeof(ClientCommands));
-        }
+        
 
         private void comboBox2_SelectedIndexChanged(object sender, EventArgs e)
         {
             var selectedClient = (IPEndPoint)comboBox2.SelectedValue;
             var client = Server.ConnectionTable.FirstOrDefault(p=>Equals(p.Key.Client.RemoteEndPoint, selectedClient));
-            var commandList = (from object key in client.Value.Keys select key.ToString()).ToList();
+            if (client.Value != null)
+            {
+                var commandList = (from object key in client.Value.Keys select key.ToString()).ToList();
             
-            comboBox1.DataSource = commandList;
+                comboBox1.DataSource = commandList;
+            }
         }
 
         private void btn_RefreshDevices_Click(object sender, EventArgs e)
